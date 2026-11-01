@@ -109,7 +109,7 @@ preprocesamiento = ColumnTransformer(
     ]
 )
 
-# Candidatos: regresión común y distintas penalizaciones
+
 candidatos = [
     {
         "nombre": "linear",
@@ -134,9 +134,9 @@ for alpha in [0.01, 0.1, 1.0, 10.0, 100.0]:
         ),
     })
 
-# En cada corte:
-# - entrenamiento: todos los días anteriores;
-# - evaluación interna: los 28 días siguientes.
+# Em cada corte:
+# - treinamento - todos os dias anteriores
+# - avaliacao interna - os 28 dias seguintes
 divisor = TimeSeriesSplit(n_splits=3, test_size=28)
 cortes = list(divisor.split(X_treino))
 
@@ -156,7 +156,7 @@ for numero, (indices_treino, indices_validacao) in enumerate(
         f"a {fechas_validacao.max().date()}"
     )
 
-# Comparar todos los candidatos usando exactamente los mismos cortes
+
 resultados = []
 
 for candidato_id, candidato in enumerate(candidatos):
@@ -169,8 +169,7 @@ for candidato_id, candidato in enumerate(candidatos):
         X_interno = X_treino.iloc[indices_validacao]
         y_interno = y_treino.iloc[indices_validacao]
 
-        # Pipeline nuevo: no comparte transformaciones ni coeficientes
-        # aprendidos en otros cortes.
+        # Pipeline novo
         pipeline = Pipeline([
             ("preprocesamiento", clone(preprocesamiento)),
             ("regresion", clone(candidato["estimador"])),
@@ -189,7 +188,7 @@ for candidato_id, candidato in enumerate(candidatos):
 
 resultados = pd.DataFrame(resultados)
 
-# MAE promedio de los tres cortes para cada candidato
+# MAE promedio dos cortes
 resumo = (
     resultados
     .groupby(
@@ -214,7 +213,7 @@ print(
     .to_string(index=False)
 )
 
-# Identificar el ganador
+# escolher o ganhador
 melhor_id = int(resumo.iloc[0]["candidato_id"])
 melhor = candidatos[melhor_id]
 
@@ -225,7 +224,7 @@ if melhor["alpha"] is not None:
 
 print(f"MAE médio interno: {resumo.iloc[0]['mae_medio']:.2f}")
 
-# Entrenar el modelo elegido con TODO el entrenamiento
+# Treinamento com o escolhido
 modelo_foods = Pipeline([
     ("preprocesamiento", clone(preprocesamiento)),
     ("regresion", clone(melhor["estimador"])),
@@ -241,6 +240,46 @@ print(
     base["date"].max().date(),
 )
 
-# Guardar la comparación interna, separada de las métricas oficiales
 resultados.to_csv("foods_comparacao_cortes.csv", index=False)
 resumo.to_csv("foods_comparacao_modelos.csv", index=False)
+
+
+#--------------- 28 predicoes ----------------
+
+datas_validacao = pd.DataFrame({
+    "date": pd.date_range("2016-03-28", "2016-04-24")
+})
+
+base_validacao = datas_validacao.merge(
+    covariaveis,
+    on="date",
+    how="left",
+    validate="one_to_one",
+    indicator=True,
+)
+
+
+base_validacao = base_validacao.drop(columns="_merge")
+
+# mesma preparacao do treino
+base_validacao = preparar_entradas(base_validacao)
+X_validacao = base_validacao[columnas_entrada]
+
+
+yhat = modelo_foods.predict(X_validacao)
+
+previsoes_foods = pd.DataFrame({
+    "date": base_validacao["date"],
+    "series": "FOODS",
+    "modelo": "Lasso",
+    "ŷ": yhat,
+})
+
+
+previsoes_foods.to_csv(
+    "previsoes_validacao_foods.csv",
+    index=False,
+)
+
+print("\nPrevisões de FOODS:")
+print(previsoes_foods.to_string(index=False)) 
