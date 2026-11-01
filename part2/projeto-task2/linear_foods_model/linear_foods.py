@@ -15,8 +15,8 @@ from sklearn.linear_model import Ridge, Lasso
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_absolute_error
 
-
-datos = Path("./dados")
+pasta_script = Path(__file__).resolve().parent
+datos = pasta_script.parent / "dados"
 
 treino = pd.read_csv(
     datos / "treino.csv",
@@ -241,9 +241,17 @@ print(
     base["date"].max().date(),
 )
 
-resultados.to_csv("foods_comparacao_cortes.csv", index=False)
-resumo.to_csv("foods_comparacao_modelos.csv", index=False)
+pasta_comparacao = pasta_script / "comparacao_de_modelos"
+pasta_comparacao.mkdir(exist_ok=True)
 
+resultados.to_csv(
+    pasta_comparacao / "foods_comparacao_cortes.csv",
+    index=False,
+)
+resumo.to_csv(
+    pasta_comparacao / "foods_comparacao_modelos.csv",
+    index=False,
+)
 
 #--------------- 28 predicoes ----------------
 
@@ -272,13 +280,13 @@ yhat = modelo_foods.predict(X_validacao)
 previsoes_foods = pd.DataFrame({
     "date": base_validacao["date"],
     "series": "FOODS",
-    "modelo": "Lasso",
-    "ŷ": yhat,
+    "modelo": "Linear",
+    "yhat": yhat,
 })
 
 
 previsoes_foods.to_csv(
-    "previsoes_validacao_foods.csv",
+    pasta_script / "previsoes_validacao_foods.csv",
     index=False,
 )
 
@@ -301,10 +309,10 @@ avaliacao = previsoes_foods.merge(
 
 assert len(avaliacao) == 28
 assert np.isfinite(
-    avaliacao[["FOODS", "ŷ"]].to_numpy(dtype=float)
+    avaliacao[["FOODS", "yhat"]].to_numpy(dtype=float)
 ).all()
 
-erros = avaliacao["FOODS"] - avaliacao["ŷ"]
+erros = avaliacao["FOODS"] - avaliacao["yhat"]
 
 mae = float(erros.abs().mean())
 rmse = float(np.sqrt((erros ** 2).mean()))
@@ -320,14 +328,14 @@ mase = mae / escala_mase
 
 metricas_foods = pd.DataFrame([{
     "series": "FOODS",
-    "modelo": "Lasso",
+    "modelo": "Linear",
     "mae": mae,
     "rmse": rmse,
     "mase": mase,
 }])
 
 metricas_foods.to_csv(
-    "metricas_foods.csv",
+    pasta_script / "metricas_foods.csv",
     index=False,
 )
 
