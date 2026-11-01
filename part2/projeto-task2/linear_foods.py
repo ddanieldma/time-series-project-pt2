@@ -1,5 +1,6 @@
 from pathlib import Path
 import pandas as pd
+import numpy as np
 
 #import para preparacao
 from sklearn.compose import ColumnTransformer
@@ -283,3 +284,54 @@ previsoes_foods.to_csv(
 
 print("\nPrevisões de FOODS:")
 print(previsoes_foods.to_string(index=False)) 
+
+#----------------------- métricas de avaliação -------------------
+
+validacao = pd.read_csv(
+    datos / "validacao.csv",
+    parse_dates=["date"],
+)[["date", "FOODS"]]
+
+avaliacao = previsoes_foods.merge(
+    validacao,
+    on="date",
+    how="left",
+    validate="one_to_one",
+)
+
+assert len(avaliacao) == 28
+assert np.isfinite(
+    avaliacao[["FOODS", "ŷ"]].to_numpy(dtype=float)
+).all()
+
+erros = avaliacao["FOODS"] - avaliacao["ŷ"]
+
+mae = float(erros.abs().mean())
+rmse = float(np.sqrt((erros ** 2).mean()))
+
+# MASE semanal do treinamento
+escala_mase = float(
+    y_treino.diff(7).abs().dropna().mean()
+)
+
+assert np.isfinite(escala_mase) and escala_mase > 0
+
+mase = mae / escala_mase
+
+metricas_foods = pd.DataFrame([{
+    "series": "FOODS",
+    "modelo": "Lasso",
+    "mae": mae,
+    "rmse": rmse,
+    "mase": mase,
+}])
+
+metricas_foods.to_csv(
+    "metricas_foods.csv",
+    index=False,
+)
+
+print("\nMétricas na validação oficial:")
+print(metricas_foods.to_string(index=False))
+print(f"\nEscala do MASE: {escala_mase:.6f}")
+
