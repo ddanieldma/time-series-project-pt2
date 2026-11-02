@@ -153,12 +153,12 @@ def main():
     # Exportação Parcial
     pd.DataFrame({
         "date": val_dates.strftime("%Y-%m-%d"), "series": SERIE, "modelo": "linear", "yhat": yhat
-    }).to_csv(f"previsoes_linear_{SERIE}.csv", index=False)
+    }).to_csv(f"previsoes_linear_recursivo_{SERIE}.csv", index=False)
     
     pd.DataFrame([{
         "series": SERIE, "modelo": "linear", "mae": metricas['mae'], "rmse": metricas['rmse'], "mase": metricas['mase']
-    }]).to_csv(f"metricas_linear_{SERIE}.csv", index=False)
-    print("Arquivos parciais gerados com sucesso!")
+    }]).to_csv(f"metricas_linear_recursivo_{SERIE}.csv", index=False)
+    print("Arquivos parciais (recursivo) gerados com sucesso!")
 
 if __name__ == "__main__":
     main()
