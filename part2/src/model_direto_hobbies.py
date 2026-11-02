@@ -9,7 +9,9 @@ from typing import Tuple, List, Dict
 # ==============================================================================
 # CONFIGURAÇÕES GERAIS
 # ==============================================================================
-DATA_DIR = Path("dados")
+BASE_PATH = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_PATH / "dados"
+OUTPUT_DIR = BASE_PATH / "outputs"
 SERIE = "HOBBIES"
 PRECO_COL = "preco_HOBBIES"
 ORIGEM = pd.Timestamp("2016-03-27")
@@ -154,11 +156,11 @@ def main():
     
     pd.DataFrame({
         "date": val_dates.strftime("%Y-%m-%d"), "series": SERIE, "modelo": "linear", "yhat": yhat
-    }).to_csv(f"previsoes_linear_direto_{SERIE}.csv", index=False)
+    }).to_csv(OUTPUT_DIR / f"previsoes_linear_direto_{SERIE}.csv", index=False)
 
     pd.DataFrame([{
             "series": SERIE, "modelo": "linear", "mae": metricas['mae'], "rmse": metricas['rmse'], "mase": metricas['mase']
-        }]).to_csv(f"metricas_linear_direto_{SERIE}.csv", index=False)
+        }]).to_csv(OUTPUT_DIR / f"metricas_linear_direto_{SERIE}.csv", index=False)
     print("Arquivos parciais (direto) gerados com sucesso!")
     
 

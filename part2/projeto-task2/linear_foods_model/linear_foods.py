@@ -16,7 +16,7 @@ from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_absolute_error
 
 pasta_script = Path(__file__).resolve().parent
-datos = pasta_script.parent / "dados"
+datos = pasta_script.parent.parent / "dados"
 
 treino = pd.read_csv(
     datos / "treino.csv",
