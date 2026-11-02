@@ -29,11 +29,13 @@ A IA ajudou a escrever código, mas o papel humano foi essencial: definimos o es
 ## Ferramentas utilizadas
 
 - Claude Code (Anthropic): organização dos materiais da Task 2 e código de integração (`run.py`).
+- Gemini (Google): enumeração das tarefas da Task 2 e duas propostas de divisão do trabalho no grupo.
+- DeepSeek: explicação do README da Task 2 para o grupo.
 - Assistente de IA em chat: estudo do enunciado e código do modelo linear da série HOBBIES.
 
 ## Onde ajudou
 
-- **Organização dos materiais:** leitura do enunciado e do `check_task2.py`, divisão do que cada corte (`linear`, árvore, rede) cobra e plano do que fechar antes de cada domingo.
+- **Organização dos materiais:** leitura do enunciado e do `check_task2.py`, divisão do que cada corte (`linear`, árvore, rede) cobra e plano do que fechar antes de cada domingo. A lista das tarefas e a divisão entre as cinco pessoas partiram de uma conversa com o Gemini, e o README da Task 2 foi explicado ao grupo com o DeepSeek.
 - **Integração:** a parte mecânica do `run.py`: leitura do CSV de previsões de cada série, validações (28 dias, sem datas repetidas, sem NaN), cálculo de MAE, RMSE e MASE com a escala do naive sazonal, conferência de que as métricas da Task 1 não mudaram e escrita de `previsoes_validacao.csv` e `metricas.csv`. Também o passo a passo do `README.md`.
 - **Modelo linear de HOBBIES:** estruturação das features (calendário, eventos, preço padronizado só com o treino), lags e escolha de hiperparâmetros por validação cruzada temporal dentro do treino, nas estratégias recursiva e direta.
 
