@@ -20,6 +20,10 @@ Foram utilizadas as seguintes variáveis:
 Foram comparadas regressão linear comum, Ridge e Lasso, utilizando
 as mesmas variáveis de entrada e os mesmos cortes temporais.
 
+Utilizamos a estratégia direta porque as entradas do modelo são covariáveis 
+conhecidas na origem da previsão, sem defasagens das vendas. Como limitação, 
+o modelo não incorpora explicitamente a dinâmica das vendas recentes.
+
 A regressão comum serviu como referência sem regularização.
 Ridge e Lasso foram incluídos para avaliar se a regularização
 melhoraria a previsão diante de variáveis categóricas e informações
@@ -93,10 +97,6 @@ horizonte de 28 dias. Não demonstram que ele será superior
 em todos os períodos nem permitem atribuir a melhora a uma
 covariável específica.
 
-O MAE da comparação interna não deve ser comparado diretamente
-com as métricas oficiais da Task 1, pois os períodos avaliados
-são diferentes. Esses resultados mostram melhor desempenho do 
-Lasso neste horizonte de 28 dias. Não demonstram que ele será 
-superior em todos os períodos nem permitem atribuir a melhora 
-a uma covariável específica.
-
+O MAE da comparação interna não deve ser comparado diretamente 
+com as métricas oficiais da Task 1, pois os períodos avaliados 
+são diferentes.
