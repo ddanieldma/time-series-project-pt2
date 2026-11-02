@@ -40,7 +40,7 @@ python -m pip install -r requirements.txt && python run.py
 
 O `run.py`:
 
-1. refaz os modelos da Task 2 a partir de `part2/dados` (scripts em `part2/src`);
+1. refaz os modelos da Task 2 a partir de `part2/dados` (scripts em `part2/src` e em `part2/projeto-task2/linear_foods_model`);
 2. junta as previsões de cada série com as da Task 1 (quatro baselines e SARIMA, como foram entregues, em `part1/outputs`);
 3. confere que cada modelo tem uma previsão por dia da validação, sem datas repetidas;
 4. recalcula MAE, RMSE e MASE a partir do `yhat`. A escala do MASE é o MAE in-sample do naive sazonal (período 7) no treino;

@@ -41,9 +41,14 @@ TASK1_PREDICTIONS_PATHS = [
 ]
 TASK1_METRICS_PATH = PART1 / "metricas.csv"
 
-# Scripts que geram as previsões da Task 2.
+# Scripts que geram as previsões da Task 2 e, para o pacote com imports
+# relativos (store_total), o módulo rodado da raiz.
 MODEL_SCRIPTS = [
     PART2 / "src" / "model_direto_hobbies.py",
+    PART2 / "projeto-task2" / "linear_foods_model" / "linear_foods.py",
+]
+MODEL_MODULES = [
+    "part2.src.model_store_total.model_store_total",
 ]
 
 # CSV de previsões de cada classe, por série. No HOBBIES entra a estratégia
@@ -65,9 +70,11 @@ def assert_same_data():
 
 
 def run_model_scripts():
-    for script in MODEL_SCRIPTS:
-        print(f"Rodando {script.relative_to(BASE_PATH)}")
-        subprocess.run([sys.executable, str(script)], check=True)
+    comandos = [(script.relative_to(BASE_PATH), [str(script)]) for script in MODEL_SCRIPTS]
+    comandos += [(modulo, ["-m", modulo]) for modulo in MODEL_MODULES]
+    for nome, argumentos in comandos:
+        print(f"Rodando {nome}")
+        subprocess.run([sys.executable, *argumentos], cwd=BASE_PATH, check=True)
 
 
 def assert_predictions_df(df: pd.DataFrame, origem: str, serie: str | None = None):

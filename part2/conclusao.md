@@ -29,13 +29,13 @@ As linhas da Task 1 (quatro baselines e SARIMA) entram como foram entregues, e o
 | store_total | Naive sazonal | 459,18 | 655,47 | 1,056 |
 | store_total | Drift | 863,28 | 966,76 | 1,984 |
 | store_total | SARIMA | 271,76 | 359,02 | 0,625 |
-| store_total | Linear | [tbd] | [tbd] | [tbd] |
+| store_total | Linear | 198,89 | 271,09 | 0,457 |
 
 ## Linear, naive sazonal e SARIMA
 
 - **FOODS:** o linear ficou melhor que o naive sazonal e que o SARIMA nas três métricas. MAE de 146,62 contra 180,02 do SARIMA e 343,86 do naive sazonal; MASE de 0,429 contra 0,526 e 1,005.
 - **HOBBIES:** o linear (estratégia direta) também ficou melhor que os dois nas três métricas, mas a diferença para o SARIMA é pequena: MAE de 78,02 contra 78,47 e MASE de 0,854 contra 0,859. Contra o naive sazonal a diferença é grande (MAE de 102,25).
-- **store_total:** [tbd] (o linear ainda não foi entregue).
+- **store_total:** o linear (mínimos quadrados, estratégia direta) ficou melhor que o naive sazonal e que o SARIMA nas três métricas. MAE de 198,89 contra 271,76 do SARIMA e 459,18 do naive sazonal; MASE de 0,457 contra 0,625 e 1,056.
 - Nenhum linear entregue perdeu para o naive sazonal em alguma métrica, então não há série e métrica a citar.
 
 ## Resíduos na validação
@@ -44,7 +44,7 @@ Os resíduos são y - yhat: positivo quer dizer que o modelo previu abaixo do re
 
 - **FOODS:** o SARIMA previu abaixo do real em 20 dos 28 dias (viés médio de +107,7) e o linear previu acima em 19 dos 28 (viés médio de -87,2). Os dois erram em sentidos opostos.
 - **HOBBIES:** o viés médio do linear é de +12,5, perto de zero (previu abaixo do real em 15 dias e acima em 13).
-- **store_total:** o SARIMA previu abaixo do real em 21 dos 28 dias (+188,7).
+- **store_total:** o SARIMA previu abaixo do real em 21 dos 28 dias (viés médio de +188,7). O linear previu abaixo em 17 dos 28 dias e o viés caiu para +74,3.
 - Os resíduos de treino de cada modelo linear: [tbd] (cada autor).
 
 ## Texto de cada série
@@ -55,7 +55,10 @@ Os resíduos são y - yhat: positivo quer dizer que o modelo previu abaixo do re
 
 ### Série HOBBIES (Gabrielle)
 
-Para o modelo linear, usou-se uma regressão regularizada. Os hiperparâmetros de regularização ($\alpha$ e l1_ratio) foram escolhidos rigorosamente fora da validação, utilizando validação cruzada temporal (TimeSeriesSplit de 5 folds) restrita ao conjunto de treino. Inicialmente, eu imaginei que a esetratégia recursiva pudesse ser melhor, já que imaginei que lags curtos pudessem influenciar o preço de um dia, mas por segurança testei o direto também e ele acabou performando melhor, provavelmente a regularização não bastou para impedir o erro acumulado das previsões passadas também usadas como input do modelo recursivo.
+#### Métricas e regularização
+Para o modelo linear, usou-se uma regressão regularizada. Os hiperparâmetros de regularização ($\alpha$ e l1_ratio) foram escolhidos rigorosamente fora da validação, utilizando validação cruzada temporal (TimeSeriesSplit de 5 folds) restrita ao conjunto de treino. Inicialmente, eu imaginei que a estratégia recursiva pudesse ser melhor, já que imaginei que lags curtos pudessem influenciar o preço de um dia, mas por segurança testei o direto também e ele acabou performando melhor, provavelmente a regularização não bastou para impedir o erro acumulado das previsões passadas também usadas como input do modelo recursivo.
+
+MÉTRICAS:
 
 - Média: 
 
@@ -81,6 +84,12 @@ O linear de estratégia recursiva ultrapassou o de média e naive sazonal, fican
 
 O motivo da escolha de usar regularização no modelo direto é que usei vários lags: lag_28, lag_35, lag_42, ..., que costumam ser correlacionados (a Ridge melhora isso), e talvez defasagens muito distantes (como lag_49 ou lag_56) sejam apenas ruído, bem como tem covariáveis pouco úteis (que são descartadas pela Lasso), como possivelmente o snap_CA que por lógica não afeta os valores da série de hobbies por ser relacionado com comida. Além, claro, de minimizar o overfitting.
 
+#### Covariáveis:
+
+A construção das covariáveis seguiu o rigor de não gerar vazamento de dados, utilizando apenas informações de calendário e o histórico disponível até a origem em 27/03/2016.
+
+No fim usei todas as covariáveis disponíveis, delegando ao próprio modelo a tarefa de seleção de atributos. Como utilizamos a regressão regularizada com penalidade L1 (Lasso), o algoritmo zera matematicamente os coeficientes das variáveis irrelevantes ou redundantes, descartando-as automaticamente da previsão final sem a necessidade de cortes manuais prévios.
+
 ### Série store_total (Daniel)
 
 [tbd]
@@ -92,4 +101,3 @@ O motivo da escolha de usar regularização no modelo direto é que usei vários
 ## Organização dos arquivos
 
 [tbd] (Henzo)
-
