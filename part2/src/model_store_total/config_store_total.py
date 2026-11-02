@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 
 
-BASE_PATH = Path(__file__).resolve().parent.parent
+BASE_PATH = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_PATH / 'dados'
 SERIE = "store_total"
 PRECO_COL = f"preco_{SERIE}"

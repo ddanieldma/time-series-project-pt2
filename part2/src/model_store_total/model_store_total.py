@@ -1,6 +1,9 @@
 from sklearn.linear_model import LinearRegression
 import pandas as pd
 
+import datetime as dt
+from typing import Dict, List
+
 from .load_data_st import carregar_dados
 from .prepare_data_st import (
     calcular_estatisticas_treino,
@@ -12,10 +15,23 @@ from .prepare_data_st import (
 from .config_store_total import (
     VAL_END,
     VAL_START,
-    SERIE
+    SERIE,
+    BASE_PATH
 )
-from .model_hobbies import calcular_metricas
+from ..model_direto_hobbies import calcular_metricas
 
+def save_outputs(y_hat: pd.Series, val_dates: pd.DatetimeIndex, metrics: Dict[str, float]):
+    OUTPUT_PATH = BASE_PATH / 'outputs'
+    predictions_path = OUTPUT_PATH / 'previsoes_linear_store_total.csv'
+    metrics_path = OUTPUT_PATH / 'metricas_linear_store_total.csv'
+    
+    pd.DataFrame({
+        "date": val_dates.strftime("%Y-%m-%d"), "series": SERIE, "modelo": "linear", "yhat": y_hat
+    }).to_csv(predictions_path, index=False)
+    
+    pd.DataFrame([{
+        "series": SERIE, "modelo": "linear", "mae": metrics['mae'], "rmse": metrics['rmse'], "mase": metrics['mase']
+    }]).to_csv(metrics_path, index=False)
 
 if __name__ == "__main__":
     train_df, val_df, cov_df = carregar_dados()
@@ -50,4 +66,8 @@ if __name__ == "__main__":
     val_dates = pd.date_range(VAL_START, VAL_END, freq="D")
     y_true = val_df.set_index("date").loc[val_dates, SERIE].to_numpy()
 
-    print(calcular_metricas(y_true, y_hat.to_numpy(), train_df[SERIE].to_numpy()))
+    validation_metrics = calcular_metricas(y_true, y_hat.to_numpy(), train_df[SERIE].to_numpy())
+    
+    print(validation_metrics)
+    
+    save_outputs(y_hat, val_dates, validation_metrics)
