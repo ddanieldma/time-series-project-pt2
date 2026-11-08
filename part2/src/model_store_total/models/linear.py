@@ -1,23 +1,20 @@
 from sklearn.linear_model import LinearRegression
 import pandas as pd
 
-import datetime as dt
-from typing import Dict, List
-
-from .load_data_st import carregar_dados
-from .prepare_data_st import (
-    calcular_estatisticas_treino,
+from ..data.load_data import carregar_dados
+from ..data.prepare_data import (
+    compute_train_stats,
     build_exog_features,
-    construir_base_treino,
-    construir_base_validacao,
+    build_train_base,
+    build_validation_base,
     feature_columns
 )
-from .config_store_total import (
+from ..config import (
     VAL_END,
     VAL_START,
     SERIE,
 )
-from ..model_direto_hobbies import calcular_metricas
+from ...model_direto_hobbies import calcular_metricas
 from .models_utils import save_outputs
 
 
@@ -25,14 +22,14 @@ if __name__ == "__main__":
     train_df, val_df, cov_df = carregar_dados()
     
     # 1) Estatísticas do treino (antes de construir features)
-    stats = calcular_estatisticas_treino(train_df, cov_df)
+    stats = compute_train_stats(train_df, cov_df)
 
     # 2) Features exógenas sobre treino + validação (uma única vez)
     exog_feats = build_exog_features(cov_df, stats)
 
     # 3) Bases de treino e validação
-    X_train_df, y_train_std = construir_base_treino(train_df, exog_feats, stats)
-    X_validation = construir_base_validacao(exog_feats, y_train_std, stats)
+    X_train_df, y_train_std = build_train_base(train_df, exog_feats, stats)
+    X_validation = build_validation_base(exog_feats, y_train_std, stats)
 
     # 4) Sanidade: mesmas colunas, mesma ordem
     cols = feature_columns(X_train_df)

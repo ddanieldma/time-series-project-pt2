@@ -13,4 +13,4 @@ VAL_START = pd.Timestamp("2016-03-28")
 VAL_END = pd.Timestamp("2016-04-24")
 LAG = 28
 
-val_dates = pd.date_range(VAL_START, VAL_END, freq="D")
+VAL_DATES = pd.date_range(VAL_START, VAL_END, freq="D")

@@ -3,10 +3,10 @@ import numpy as np
 
 from typing import Dict, List, Tuple
 
-from .config_store_total import (
+from ..config import (
     SERIE, PRECO_COL, ORIGEM, LAG, VAL_END, VAL_START
 )
-from .load_data_st import carregar_dados
+from .load_data import carregar_dados
 
 
 # ---------- helpers ----------
@@ -43,7 +43,7 @@ def add_lag28(df: pd.DataFrame, y_train: pd.Series, lag: int = LAG) -> pd.DataFr
 
 
 # ---------- estatísticas do treino ----------
-def calcular_estatisticas_treino(train_df: pd.DataFrame, cov_df: pd.DataFrame) -> Dict[str, float]:
+def compute_train_stats(train_df: pd.DataFrame, cov_df: pd.DataFrame) -> Dict[str, float]:
     """Média e desvio EXCLUSIVAMENTE com dados do treino (sem leakage)."""
     y_mean = float(train_df[SERIE].mean())
     y_std = float(train_df[SERIE].std(ddof=0))
@@ -95,7 +95,7 @@ def build_exog_features(exog_df: pd.DataFrame, stats: Dict[str, float]) -> pd.Da
 
 # ---------- base de treino ----------
 
-def construir_base_treino(
+def build_train_base(
     train_df: pd.DataFrame,
     exog_feats: pd.DataFrame,
     stats: Dict[str, float],
@@ -142,7 +142,7 @@ def construir_base_treino(
     return X.drop(columns="date"), y
 
 # ---------- base de validação (novo) ----------
-def construir_base_validacao(
+def build_validation_base(
     exog_feats: pd.DataFrame,
     y_train_std: pd.Series,
     stats: Dict[str, float],
@@ -255,14 +255,14 @@ def get_all_data() -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, np.ndarray]:
     train_df, val_df, cov_df = carregar_dados()
             
     # 1) Estatísticas do treino (antes de construir features)
-    stats = calcular_estatisticas_treino(train_df, cov_df)
+    stats = compute_train_stats(train_df, cov_df)
 
     # 2) Features exógenas sobre treino + validação (uma única vez)
     exog_feats = build_exog_features(cov_df, stats)
 
     # 3) Bases de treino e validação
-    X_train_df, y_train_std = construir_base_treino(train_df, exog_feats, stats)
-    X_validation = construir_base_validacao(exog_feats, y_train_std, stats)
+    X_train_df, y_train_std = build_train_base(train_df, exog_feats, stats)
+    X_validation = build_validation_base(exog_feats, y_train_std, stats)
 
     # 4) Bases expandidas para os 28 h's
     X_train_expanded_df, y_train_expanded = expand_train_horizons(X_train_df, y_train_std)
@@ -283,14 +283,14 @@ if __name__ == "__main__":
     train_df, val_df, cov_df = carregar_dados()
         
     # 1) Estatísticas do treino (antes de construir features)
-    stats = calcular_estatisticas_treino(train_df, cov_df)
+    stats = compute_train_stats(train_df, cov_df)
 
     # 2) Features exógenas sobre treino + validação (uma única vez)
     exog_feats = build_exog_features(cov_df, stats)
 
     # 3) Bases de treino e validação
-    X_train_df, y_train_std = construir_base_treino(train_df, exog_feats, stats)
-    X_validation = construir_base_validacao(exog_feats, y_train_std, stats)
+    X_train_df, y_train_std = build_train_base(train_df, exog_feats, stats)
+    X_validation = build_validation_base(exog_feats, y_train_std, stats)
     
     # 4) Bases expandidas para os 28 h's
     X_train_expanded_df, y_train_expanded = expand_train_horizons(X_train_df, y_train_std)
