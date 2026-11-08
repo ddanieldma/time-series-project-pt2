@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     # 3) Bases de treino e validação
     X_train_df, y_train_std = construir_base_treino(train_df, exog_feats, stats)
-    X_validation = construir_base_validacao(exog_feats, y_train_std)
+    X_validation = construir_base_validacao(exog_feats, y_train_std, stats)
 
     # 4) Sanidade: mesmas colunas, mesma ordem
     cols = feature_columns(X_train_df)
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     y_true = val_df.set_index("date").loc[val_dates, SERIE].to_numpy()
 
     validation_metrics = calcular_metricas(y_true, y_hat.to_numpy(), train_df[SERIE].to_numpy())
-    save_outputs(y_hat, val_dates, validation_metrics)
+    save_outputs(y_hat, val_dates, validation_metrics, 'linear')
     
     print(validation_metrics)
     
