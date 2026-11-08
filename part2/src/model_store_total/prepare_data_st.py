@@ -71,7 +71,7 @@ def build_exog_features(exog_df: pd.DataFrame, stats: Dict[str, float]) -> pd.Da
     feats["date"] = exog_df.index
 
     # 1.1 Dia da semana (segunda = referência)
-    dow = pd.Series(exog_df.index.day_of_week, index=exog_df.index)
+    dow = pd.Series(exog_df.index.day_of_week, index=exog_df.index) # type: ignore
     dow_dum = pd.get_dummies(dow, prefix="dow", drop_first=True).astype(int)
     feats = feats.join(dow_dum)  # dow_1..dow_6
 
@@ -190,8 +190,8 @@ def expand_train_horizons(
 ) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Takes the 1-step train dataframe and expands it to 28 steps.
-    Shifts the target y by -h and appends the horizon as a feature.
-    Input of this function should be the output of `construir_base_treino`.
+    Keeps the target and calendar features anchored to the TARGET date,
+    and shifts the historical lags forward by h-1 to simulate the origin constraint.
     """
     expanded_X = []
     expanded_y = []
@@ -200,11 +200,18 @@ def expand_train_horizons(
         X_h = X_train_df.copy()
         X_h["h"] = h
         
-        # Shift target backwards by h (so row at s points to s+h)
-        y_h = y_train_std.shift(-(h - 1))
+        # Shift the lag features forward by (h - 1). 
+        # If we are predicting date D at horizon h, the forecast was made at D - h + 1.
+        # The lag available at that origin was the lag from D - h + 1 - 28.
+        lag_cols = [c for c in X_h.columns if "lag" in c.lower()]
+        for col in lag_cols:
+            X_h[col] = X_h[col].shift(h - 1)
         
-        # Keep only rows where the future target actually exists in the train window
-        valid_mask = y_h.notna()
+        # Target stays completely aligned with the calendar features (DOW, events)
+        y_h = y_train_std.copy()
+        
+        # Drop rows where shifting pushed the lag out of bounds
+        valid_mask = X_h[lag_cols[0]].notna()
         
         expanded_X.append(X_h.loc[valid_mask])
         expanded_y.append(y_h.loc[valid_mask])
@@ -221,6 +228,16 @@ def add_horizon_to_validation(X_validation):
     Assumes X_validation has exactly 28 rows in chronological order.
     """
     X_val_h = X_validation.copy()
+    
+    # FIX 2: Freeze sales lags at the origin (first row = 2016-03-27)
+    # Identify your lag columns. If they are all like 'y_lag_1', 'y_lag_28', etc.
+    lag_cols = [c for c in X_val_h.columns if "lag" in c.lower() or "roll" in c.lower()]
+    
+    if lag_cols:
+        origin_lags = X_val_h.iloc[0][lag_cols].copy()
+        X_val_h[lag_cols] = origin_lags.values  # Broadcast to all 28 rows
+        
+    # Now assign the true horizons 1 to 28
     X_val_h["h"] = np.arange(1, 29)
     return X_val_h
 
