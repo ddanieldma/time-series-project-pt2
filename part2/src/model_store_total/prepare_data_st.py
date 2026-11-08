@@ -1,9 +1,12 @@
 import pandas as pd
+import numpy as np
+
 from typing import Dict, List, Tuple
 
 from .config_store_total import (
     SERIE, PRECO_COL, ORIGEM, LAG, VAL_END, VAL_START
 )
+from .load_data_st import carregar_dados
 
 
 # ---------- helpers ----------
@@ -34,7 +37,7 @@ def add_lag28(df: pd.DataFrame, y_train: pd.Series, lag: int = LAG) -> pd.DataFr
     if not isinstance(df.index, pd.DatetimeIndex):
         raise TypeError("df precisa ter DatetimeIndex em add_lag28")
     df = df.copy()
-    lag_dates = df.index - pd.Timedelta(days=lag)
+    lag_dates = df.index - pd.Timedelta(days=lag) # type: ignore
     df[f"y_lag{lag}"] = y_train.reindex(lag_dates).to_numpy()
     return df
 
@@ -100,8 +103,12 @@ def construir_base_treino(
     """Monta X_train e y_train padronizado, alinhados por data.
 
     Retorna (X_train, y_train_std):
-        - X_train: features (já com y_lag28, sem 'date')
+        - X_train: features padronizadas (já com y_lag28, sem 'date')
         - y_train_std: alvo padronizado (mesmas datas de X_train)
+
+    Efeito colateral: preenche `stats` com `<col>_mean`/`<col>_std` para cada
+    coluna de X (exógenas + y_lag28), reutilizando valores já presentes para
+    permitir consistência entre treino e inferência.
     """
     train_df = _ensure_datetime_index(train_df)
     exog_feats = _ensure_datetime_index(exog_feats)
@@ -117,22 +124,39 @@ def construir_base_treino(
     X = X.dropna(subset=[f"y_lag{LAG}"])
     assert X.notna().all().all(), "NaN inesperado em X_train após dropna do lag"
 
+    # Padroniza cada coluna de X (exógenas + y_lag28) usando stats globais
+    for col in X.columns:
+        if col == "date":
+            continue
+        m_key, s_key = f"{col}_mean", f"{col}_std"
+        if m_key in stats and s_key in stats:
+            m, s = stats[m_key], stats[s_key]
+        else:
+            m = float(X[col].mean())
+            s = float(X[col].std(ddof=0)) or 1.0  # evita div. por zero
+            stats[m_key], stats[s_key] = m, s
+        X[col] = (X[col] - m) / s
+
     y = y_std.loc[X.index]
 
     return X.drop(columns="date"), y
 
-
 # ---------- base de validação (novo) ----------
-
 def construir_base_validacao(
     exog_feats: pd.DataFrame,
     y_train_std: pd.Series,
+    stats: Dict[str, float],
 ) -> pd.DataFrame:
-    """Monta X_validation: features exógenas no horizonte + lag-28 do treino.
+    """Monta X_validation: features exógenas no horizonte + lag-28 do treino,
+    padronizadas com as estatísticas do treino (`stats`).
 
     Guarda-corpos:
         - t-28 <= ORIGEM para todo t no horizonte (sem vazamento);
-        - sem NaN em nenhuma coluna.
+        - sem NaN em nenhuma coluna após padronização.
+
+    Importante: usa as médias/desvios gravados em `stats` por
+    `construir_base_treino` — nunca recalcula em cima da validação (evita
+    leakage de distribuição).
     """
     exog_feats = _ensure_datetime_index(exog_feats)
 
@@ -143,7 +167,128 @@ def construir_base_validacao(
     assert (val_dates - pd.Timedelta(days=LAG) <= ORIGEM).all(), \
         "Vazamento: lag-28 da validação puxa dado futuro"
 
+    # Padroniza usando estatísticas do treino
+    for col in X_val.columns:
+        if col == "date":
+            continue
+        m_key, s_key = f"{col}_mean", f"{col}_std"
+        assert m_key in stats and s_key in stats, (
+            f"Estatística de padronização ausente para '{col}' "
+            f"({m_key!r}/{s_key!r}); rode construir_base_treino primeiro."
+        )
+        X_val[col] = (X_val[col] - stats[m_key]) / stats[s_key]
+
     na = X_val.isna().sum()
     assert na.sum() == 0, f"NaN em features de validação: {na[na > 0].to_dict()}"
 
     return X_val.drop(columns="date") if "date" in X_val.columns else X_val
+
+def expand_train_horizons(
+    X_train_df: pd.DataFrame,
+    y_train_std: pd.Series,
+    max_h: int = 28
+) -> Tuple[pd.DataFrame, pd.Series]:
+    """
+    Takes the 1-step train dataframe and expands it to 28 steps.
+    Shifts the target y by -h and appends the horizon as a feature.
+    Input of this function should be the output of `construir_base_treino`.
+    """
+    expanded_X = []
+    expanded_y = []
+    
+    for h in range(1, max_h + 1):
+        X_h = X_train_df.copy()
+        X_h["h"] = h
+        
+        # Shift target backwards by h (so row at s points to s+h)
+        y_h = y_train_std.shift(-(h - 1))
+        
+        # Keep only rows where the future target actually exists in the train window
+        valid_mask = y_h.notna()
+        
+        expanded_X.append(X_h.loc[valid_mask])
+        expanded_y.append(y_h.loc[valid_mask])
+        
+    X_train_h = pd.concat(expanded_X).reset_index(drop=True)
+    y_train_h = pd.concat(expanded_y).reset_index(drop=True)
+    
+    return X_train_h, y_train_h
+
+
+def add_horizon_to_validation(X_validation):
+    """
+    Adds h=1..28 to the validation dataframe. 
+    Assumes X_validation has exactly 28 rows in chronological order.
+    """
+    X_val_h = X_validation.copy()
+    X_val_h["h"] = np.arange(1, 29)
+    return X_val_h
+
+def get_all_data() -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, np.ndarray]:
+    """
+    Runs the whole data pipeline, returning the final expanded train dataframe
+    and series and the validation dataframe with the horizon column.
+    
+    Returns:
+        pd.DataFrame: X_train_expanded_df
+        pd.Series: y_train_expanded
+        pd.DataFrame: X_validation_horizon
+        np.ndarray: y_true
+    """
+    train_df, val_df, cov_df = carregar_dados()
+            
+    # 1) Estatísticas do treino (antes de construir features)
+    stats = calcular_estatisticas_treino(train_df, cov_df)
+
+    # 2) Features exógenas sobre treino + validação (uma única vez)
+    exog_feats = build_exog_features(cov_df, stats)
+
+    # 3) Bases de treino e validação
+    X_train_df, y_train_std = construir_base_treino(train_df, exog_feats, stats)
+    X_validation = construir_base_validacao(exog_feats, y_train_std, stats)
+
+    # 4) Bases expandidas para os 28 h's
+    X_train_expanded_df, y_train_expanded = expand_train_horizons(X_train_df, y_train_std)
+    X_validation_horizon = add_horizon_to_validation(X_validation)
+    
+    val_dates = pd.date_range(VAL_START, VAL_END, freq="D")
+    y_true = val_df.set_index("date").loc[val_dates, SERIE].to_numpy()
+    
+    return (
+        X_train_expanded_df,
+        y_train_expanded,
+        X_validation_horizon,
+        y_true,
+    )
+    
+
+if __name__ == "__main__":
+    train_df, val_df, cov_df = carregar_dados()
+        
+    # 1) Estatísticas do treino (antes de construir features)
+    stats = calcular_estatisticas_treino(train_df, cov_df)
+
+    # 2) Features exógenas sobre treino + validação (uma única vez)
+    exog_feats = build_exog_features(cov_df, stats)
+
+    # 3) Bases de treino e validação
+    X_train_df, y_train_std = construir_base_treino(train_df, exog_feats, stats)
+    X_validation = construir_base_validacao(exog_feats, y_train_std, stats)
+    
+    # 4) Bases expandidas para os 28 h's
+    X_train_expanded_df, y_train_expanded = expand_train_horizons(X_train_df, y_train_std)
+    X_validation_horizon = add_horizon_to_validation(X_validation)
+    
+    
+    print("Train data")
+    print(X_train_df.head())
+    print(f"Num of rows: {len(X_train_df)}")
+    print("Expanded train data")
+    print(X_train_expanded_df.head())
+    print(f"Num of rows: {len(X_train_expanded_df)}")
+    print(50 * "-")
+    
+    print("Validation data")
+    print(X_validation.head())
+    print("Validation data with horizon")
+    print(X_validation_horizon.head())
